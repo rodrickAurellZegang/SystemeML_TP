@@ -222,8 +222,7 @@ Docker Compose est essentiel pour les systèmes distribués car :
 
 ## Conclusion
 
-Ce TP a permis de mettre en place un environnement complet basé sur Docker et Docker Compose pour une mini-API FastAPI et une base PostgreSQL.  
-Les notions abordées (images, conteneurs, mappage de ports, logs, Docker Compose, interactions avec une base de données) constituent la base nécessaire pour déployer et maintenir des systèmes de Machine Learning en production.
+Ce TP a permis de mettre en place un environnement complet basé sur Docker et Docker Compose pour une mini-API FastAPI et une base PostgreSQL. Les notions abordées (images, conteneurs, mappage de ports, logs, Docker Compose, interactions avec une base de données) constituent la base nécessaire pour déployer et maintenir des systèmes de Machine Learning en production.
 
 
 
