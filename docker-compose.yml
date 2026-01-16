@@ -1,28 +1,31 @@
-# docker-compose.yml
-# Configuration Docker Compose pour le système multi-conteneurs
-# TP1 - CSC 8613 Systèmes pour le Machine Learning
-
-version: "3.9"
 
 services:
-  # Service de base de données PostgreSQL
-  db:
-    image: postgres:16  # Image officielle PostgreSQL version 16
-    environment:
-      # Configuration des credentials de la base de données
-      POSTGRES_USER: demo      # Utilisateur par défaut
-      POSTGRES_PASSWORD: demo  # Mot de passe (ne pas utiliser en production!)
-      POSTGRES_DB: demo        # Nom de la base de données créée au démarrage
+  postgres:
+    image: postgres:16
+    env_file: .env
+    volumes:
+      - ./db/init:/docker-entrypoint-initdb.d
+      - pgdata:/var/lib/postgresql/data
     ports:
-      # Mappage de port : hôte:conteneur
-      - "5432:5432"  # Port standard PostgreSQL
+      - "5432:5432"
 
-  # Service API FastAPI
-  api:
-    build: ./api  # Construction de l'image à partir du Dockerfile dans ./api
-    ports:
-      # Mappage de port pour accéder à l'API depuis l'hôte
-      - "8000:8000"  # API accessible sur http://localhost:8000
+  prefect:
+    build: ./services/prefect
     depends_on:
-      # Garantit que la base de données démarre avant l'API
-      - db
+      - postgres
+    env_file: .env
+    environment:
+      PREFECT_API_URL: http://0.0.0.0:4200/api
+      PREFECT_UI_URL: http://0.0.0.0:4200
+      PREFECT_LOGGING_LEVEL: INFO
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - ./services/prefect:/opt/prefect/flows
+      - ./data:/data:ro
+
+volumes:
+  pgdata:
