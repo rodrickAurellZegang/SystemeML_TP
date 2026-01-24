@@ -7,14 +7,14 @@
 ## Structure du projet et des données
 L'arborescence du projet a été mise à jour pour accueillir les nouveaux composants du pipeline MLOps (base de données, données brutes et orchestrateur).
 
-![alt text](captures/Capture d'écran 2026-01-15 à 13.08.28.png)
+![alt text](captures/21.png)
 
 ### Contenu des dossiers de données
 Les données sources ont été extraites dans les répertoires correspondants :
 - **Month 000** : Contient les fichiers initiaux pour l'entraînement.
 - **Month 001** : Contient les mises à jour et les nouveaux utilisateurs pour tester l'ingestion incrémentale.
 
-![alt text](captures/Capture d'écran 2026-01-15 à 13.05.44.png)
+![alt text](captures/22.png)
 
 ### Configuration de l'environnement
 Un fichier `.env` a été créé à la racine du projet pour centraliser les paramètres de connexion à la base de données PostgreSQL. L'utilisation de variables d'environnement permet de séparer la configuration sensible du code d'infrastructure (Docker Compose) et des scripts d'orchestration (Prefect).
@@ -28,7 +28,7 @@ Le fichier `docker-compose.yml` a été mis à jour pour définir deux services 
 Après le démarrage du service `postgres`, la commande `\dt` confirme que toutes les tables ont été créées avec succès :
 
 **Sortie de la commande \dt :**
-![alt text](captures/Capture d'écran 2026-01-15 à 13.45.08.png)
+![alt text](captures/23.png)
 
 **Description des tables :**
 - **users** : Contient les informations de profil de base des clients (genre, ancienneté, situation familiale).
@@ -60,7 +60,7 @@ L'ingestion des données initiales a été réalisée avec succès via l'orchest
 - **Nombre d'utilisateurs (table users) :** 7043
 - **Nombre d'abonnements (table subscriptions) :** 7043
 
-![alt text](captures/Capture d'écran 2026-01-15 à 15.05.37.png)
+![alt text](captures/24.png)
 
 L'utilisation de la logique d'Upsert garantit que si nous relançons cette commande, le nombre de lignes restera identique, évitant ainsi toute duplication de données dans notre système de production.
 
@@ -73,20 +73,8 @@ L'étape de validation a été implémentée via la tâche `validate_with_ge`. E
 * **Vérification de l'intégrité** : S'assurer que les colonnes obligatoires (comme `user_id`) ne contiennent pas de valeurs nulles.
 * **Validation métier** : Vérifier que les métriques (comme `watch_hours_30d`) respectent des bornes logiques (valeurs positives).
 * **Sécurisation du flux** : En cas d'échec de validation, le flow Prefect est interrompu par une `AssertionError`, empêchant ainsi l'utilisation de données corrompues pour les étapes suivantes (snapshots et entraînement).
-![alt text](captures/Capture d'écran 2026-01-15 à 15.30.08.png)
+![alt text](captures/25.png)
 
-
-## Gestion des Snapshots et isolation temporelle
-
-### Description de la solution
-La fonction `create_snapshot` a été introduite pour isoler et figer l'état des données à une date donnée ($T_0$). Elle automatise la création d'un nouveau schéma PostgreSQL, nommé dynamiquement selon la variable `AS_OF`, et y duplique l'intégralité des tables de production présentes dans le schéma `public`.
-
-**L'intérêt de cette approche pour le MLOps est :**
-* **Éviter le Data Leakage** : En entraînant un modèle sur un snapshot passé, on garantit qu'il n'utilise que les informations réellement disponibles à cet instant précis, sans "connaissance du futur".
-* **Reproductibilité** : Cette méthode permet de recréer exactement les mêmes conditions d'entraînement ou de test en pointant simplement vers un schéma spécifique.
-* **Audit et Traçabilité** : Le système conserve un historique immuable de l'état des données mois après mois, facilitant l'analyse des performances des modèles dans le temps.
-
-![alt text](captures/Capture d'écran 2026-01-15 à 16.06.32.png)
 
 ## Gestion des Snapshots et isolation temporelle
 
@@ -102,7 +90,7 @@ La stratégie de snapshot implémentée suit la recommandation du cours en utili
 ### Preuve d'exécution
 L'exécution de la commande `\dt` dans PostgreSQL confirme la création des tables de snapshots, et la consultation des premières lignes montre le bon marquage temporel des données.
 
-![alt text](captures/Capture d'écran 2026-01-15 à 16.21.46.png)
+![alt text](captures/26.png)
 
 ## Ingestion du mois 001 et validation de l'idempotence
 
@@ -115,4 +103,7 @@ L'ingestion des données du mois de février (`month_001`) a permis de valider l
 * **Validation de l'historisation (Point-in-Time)** : Les tables de snapshots contiennent désormais les deux versions temporelles (`2024-01-31` et `2024-02-29`) pour chaque utilisateur, respectant la structure de clé primaire composite `(user_id, as_of)`.
 * **Continuité de la qualité** : Le passage réussi des tests Great Expectations sur ce second mois confirme la fiabilité des contrôles implémentés.
 
-![alt text](captures/Capture d'écran 2026-01-16 à 11.07.22.png)
+![alt text](captures/27.png)
+
+## Conclusion
+Le TP2 a permis de mettre en place un pipeline d'ingestion robuste et industrialisé. Grâce à l'utilisation combinée de Docker, Prefect et Great Expectations, les données sont non seulement chargées de manière idempotente, mais aussi validées et historisées. Cette architecture constitue une base solide pour l'alimentation d'un Feature Store et l'entraînement de modèles de Machine Learning reproductibles.
