@@ -42,11 +42,30 @@ services:
     depends_on:
       - postgres
       - feast
+      - mlflow
+    environment:
+      MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI}
     ports:
       - "8000:8000"
     volumes:
       - ./api:/app
       - ./services/feast_repo/repo:/repo
 
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.16.0
+    command: >
+      mlflow server
+      --backend-store-uri sqlite:///mlartifacts/mlflow.db
+      --default-artifact-root mlflow-artifacts:/
+      --host 0.0.0.0
+      --port 5000
+      --serve-artifacts
+      --artifacts-destination /mlartifacts/artifacts
+    volumes:
+      - "./mlartifacts:/mlartifacts"
+    ports:
+      - "5001:5000"
+
 volumes:
   pgdata:
+  mlartifacts:

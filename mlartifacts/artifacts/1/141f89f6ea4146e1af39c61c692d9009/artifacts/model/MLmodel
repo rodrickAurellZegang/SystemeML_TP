@@ -1,0 +1,35 @@
+artifact_path: model
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    predict_fn: predict
+    python_version: 3.11.10
+  sklearn:
+    code: null
+    pickled_model: model.pkl
+    serialization_format: cloudpickle
+    sklearn_version: 1.7.2
+mlflow_version: 2.16.0
+model_size_bytes: 56348171
+model_uuid: 21897d3b60fb4cfe83388acc2c3ef2d9
+run_id: 141f89f6ea4146e1af39c61c692d9009
+signature:
+  inputs: '[{"type": "integer", "name": "months_active", "required": true}, {"type":
+    "double", "name": "monthly_fee", "required": true}, {"type": "boolean", "name":
+    "paperless_billing", "required": true}, {"type": "boolean", "name": "plan_stream_tv",
+    "required": true}, {"type": "boolean", "name": "plan_stream_movies", "required":
+    true}, {"type": "string", "name": "net_service", "required": true}, {"type": "double",
+    "name": "watch_hours_30d", "required": true}, {"type": "double", "name": "avg_session_mins_7d",
+    "required": true}, {"type": "integer", "name": "unique_devices_30d", "required":
+    true}, {"type": "integer", "name": "skips_7d", "required": true}, {"type": "integer",
+    "name": "rebuffer_events_7d", "required": true}, {"type": "integer", "name": "failed_payments_90d",
+    "required": true}, {"type": "integer", "name": "support_tickets_90d", "required":
+    true}, {"type": "double", "name": "ticket_avg_resolution_hrs_90d", "required":
+    true}]'
+  outputs: '[{"type": "tensor", "tensor-spec": {"dtype": "int64", "shape": [-1]}}]'
+  params: null
+utc_time_created: '2026-01-25 15:06:49.496032'
