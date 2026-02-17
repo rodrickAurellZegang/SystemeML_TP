@@ -4,8 +4,15 @@ from feast import FeatureStore
 import mlflow.pyfunc
 import pandas as pd
 import os
+from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
+from fastapi.responses import Response
+import time
 
 app = FastAPI(title="StreamFlow Churn Prediction API")
+
+# Métriques Prometheus
+REQUEST_COUNT = Counter("api_requests_total", "Total number of API requests")
+REQUEST_LATENCY = Histogram("api_request_latency_seconds", "Latency of API requests in seconds")
 
 # Config
 REPO_PATH = "/repo"
@@ -30,6 +37,12 @@ def health():
 
 @app.post("/predict")
 def predict(payload: UserPayload):
+    # Démarrage du chrono
+    start_time = time.time()
+    
+    # Incrémentation du compteur
+    REQUEST_COUNT.inc()
+    
     if store is None or model is None:
         return {"error": "Model or feature store not initialized"}
 
@@ -78,8 +91,15 @@ def predict(payload: UserPayload):
     # Calcul de la prédiction
     y_pred = model.predict(X)
     
+    # Mesure de la latence
+    REQUEST_LATENCY.observe(time.time() - start_time)
+    
     return {
         "user_id": payload.user_id,
         "prediction": int(y_pred[0]),
         "features_used": X.to_dict(orient="records")[0]
     }
+
+@app.get("/metrics")
+def metrics():
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
