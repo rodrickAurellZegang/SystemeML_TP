@@ -15,15 +15,20 @@ from evidently.metrics import ValueDrift
 from evidently import Dataset
 from evidently import DataDefinition
 
+from train_and_compare_flow import train_and_compare_flow
+
+
 # ----------------------------
 # Configuration
 # ----------------------------
 REPORT_DIR = os.getenv("REPORT_DIR", "/reports/evidently")
+
 FEAST_REPO = os.getenv("FEAST_REPO", "/repo")
 
-# Dates associées à month_000 et month_001
-AS_OF_REF_DEFAULT = "2024-01-31" 
+# TODO: choisissez les deux dates utilisées dans votre projet (celles associées à month_000 et month_001)
+AS_OF_REF_DEFAULT = "2024-01-31"
 AS_OF_CUR_DEFAULT = "2024-02-29"
+
 
 # ----------------------------
 # DB helpers
@@ -94,7 +99,6 @@ def fetch_labels(engine, as_of: str) -> pd.DataFrame:
 # ----------------------------
 # Feature retrieval (Feast)
 # ----------------------------
-
 def build_features(entity_df: pd.DataFrame) -> pd.DataFrame:
     store = FeatureStore(repo_path=FEAST_REPO)
 
@@ -141,7 +145,6 @@ def get_final_features(as_of: str) -> pd.DataFrame:
     return df
 
 
-
 # ----------------------------
 # Evidently dataset wrapper
 # ----------------------------
@@ -161,14 +164,17 @@ def build_dataset_from_df(df: pd.DataFrame) -> Dataset:
     )
     dataset = Dataset.from_pandas(df, data_definition=definition)
     return dataset
+
+
 # ----------------------------
 # Prefect tasks
 # ----------------------------
-@task(persist_result=False)
+@task
 def build_dataset(as_of: str) -> pd.DataFrame:
     return get_final_features(as_of)
 
-@task(persist_result=False)
+
+@task
 def compute_target_drift(reference_df: pd.DataFrame, current_df: pd.DataFrame) -> float:
     """
     Calcule un drift simple sur la cible (si churn_label existe).
@@ -192,21 +198,19 @@ def compute_target_drift(reference_df: pd.DataFrame, current_df: pd.DataFrame) -
     return target_drift
 
 
-
-@task(persist_result=False)
+@task
 def run_evidently(reference_df: pd.DataFrame, current_df: pd.DataFrame, as_of_ref: str, as_of_cur: str):
     Path(REPORT_DIR).mkdir(parents=True, exist_ok=True)
 
-    # TODO: choisissez un seuil drift_share dans DataDriftPreset (valeur arbitraire pour ce TP) Seuil drift_share (valeur arbitraire 30%)
-    DRIFT_SHARE_THRESHOLD = 0.3
+    # TODO: choisissez un seuil drift_share dans DataDriftPreset (valeur arbitraire pour ce TP)
+    DRIFT_SHARE_THRESHOLD = 0.5
 
     # Evidently : on combine un résumé + une détection de drift + un drift sur une colonne (si présente)
     metrics = [
         DataSummaryPreset(),
         DataDriftPreset(drift_share=DRIFT_SHARE_THRESHOLD),
         # TODO: choisissez la colonne cible à monitorer (si vous avez churn_label)
-        ValueDrift(column="churn_label"), # Colonne cible
-    
+        ValueDrift(column="churn_label"),
     ]
 
     report = Report(metrics=metrics)
@@ -241,45 +245,24 @@ def run_evidently(reference_df: pd.DataFrame, current_df: pd.DataFrame, as_of_re
     }
 
 
-
-@task(persist_result=False) 
-def decide_action(as_of_ref: str, as_of_cur: str, drift_share: float, target_drift: float, threshold: float = 0.3) -> str:
-    if drift_share >= threshold:
-        return f"RETRAINING_TRIGGERED (SIMULÉ) drift_share={drift_share:.2f} >= {threshold:.2f}"
-    return f"NO_ACTION drift_share={drift_share:.2f} < {threshold:.2f}"
-
-
-
-
-
-
-
-
 @task
-def decide_action(as_of_ref: str, as_of_cur: str, drift_share: float, target_drift: float, threshold: float = 0.3) -> str:
+def decide_action(as_of_ref: str, as_of_cur: str, drift_share: float, target_drift: float, threshold: float = 0.02) -> str:
     """
-    Décision simple : si drift_share dépasse threshold, on simule un déclenchement de retrain.
+    Décision simple : si drift_share dépasse threshold, on déclenche un réentraînement.
     """
     if drift_share >= threshold:
-        return (
-            f"RETRAINING_TRIGGERED (SIMULÉ) drift_share={drift_share:.2f} >= {threshold:.2f} "
-            f"(target_drift={target_drift if target_drift == target_drift else 'NaN'})"
-        )
-    return (
-        f"NO_ACTION drift_share={drift_share:.2f} < {threshold:.2f} "
-        f"(target_drift={target_drift if target_drift == target_drift else 'NaN'})"
-    )
-
-
+        decision = train_and_compare_flow(as_of=as_of_cur)
+        return f"RETRAINING_TRIGGERED drift_share={drift_share:.2f} >= {threshold:.2f} -> {decision}"
+    return f"NO_ACTION drift_share={drift_share:.2f} < {threshold:.2f}"
 
 # ----------------------------
 # Prefect flow
 # ----------------------------
-@flow(name="monitor_month", persist_result=False)
+@flow(name="monitor_month")
 def monitor_month_flow(
     as_of_ref: str = AS_OF_REF_DEFAULT,
     as_of_cur: str = AS_OF_CUR_DEFAULT,
-    threshold: float = 0.3,
+    threshold: float = 0.02,
 ):
     ref_df = build_dataset(as_of_ref)
     cur_df = build_dataset(as_of_cur)
@@ -298,4 +281,3 @@ def monitor_month_flow(
 
 if __name__ == "__main__":
     monitor_month_flow()
-  
